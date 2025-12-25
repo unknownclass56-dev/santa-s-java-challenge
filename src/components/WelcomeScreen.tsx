@@ -2,12 +2,11 @@ import { useState } from 'react';
 import SantaCharacter from './SantaCharacter';
 
 interface WelcomeScreenProps {
-  onStart: (name: string, difficulty: 'low' | 'medium' | 'hard') => void;
+  onStart: (name: string) => void;
 }
 
 const WelcomeScreen = ({ onStart }: WelcomeScreenProps) => {
   const [name, setName] = useState('');
-  const [difficulty, setDifficulty] = useState<'low' | 'medium' | 'hard'>('medium');
   const [error, setError] = useState('');
 
   const handleStart = () => {
@@ -23,21 +22,8 @@ const WelcomeScreen = ({ onStart }: WelcomeScreenProps) => {
       setError('Name must be less than 20 characters!');
       return;
     }
-    onStart(name.trim(), difficulty);
+    onStart(name.trim());
   };
-
-  const getDifficultyInfo = () => {
-    switch (difficulty) {
-      case 'low':
-        return { timer: '4 seconds', points: '10 points', emoji: '🟢' };
-      case 'medium':
-        return { timer: '6 seconds', points: '20 points', emoji: '🟡' };
-      case 'hard':
-        return { timer: '8 seconds', points: '30 points', emoji: '🔴' };
-    }
-  };
-
-  const info = getDifficultyInfo();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -78,6 +64,9 @@ const WelcomeScreen = ({ onStart }: WelcomeScreenProps) => {
                 setName(e.target.value);
                 setError('');
               }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleStart();
+              }}
               placeholder="Your magical name..."
               className="christmas-input"
               maxLength={20}
@@ -87,45 +76,27 @@ const WelcomeScreen = ({ onStart }: WelcomeScreenProps) => {
             )}
           </div>
 
-          {/* Difficulty selection */}
-          <div>
-            <label className="block text-left text-muted-foreground mb-3 font-semibold">
-              Select Difficulty
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {(['low', 'medium', 'hard'] as const).map((level) => (
-                <button
-                  key={level}
-                  onClick={() => setDifficulty(level)}
-                  className={`p-4 rounded-xl border-2 transition-all duration-300 ${
-                    difficulty === level
-                      ? level === 'low'
-                        ? 'border-christmas-green bg-christmas-green/20'
-                        : level === 'medium'
-                        ? 'border-christmas-gold bg-christmas-gold/20'
-                        : 'border-christmas-red bg-christmas-red/20'
-                      : 'border-border bg-card/50 hover:border-muted-foreground'
-                  }`}
-                >
-                  <div className="text-3xl mb-2">
-                    {level === 'low' ? '🟢' : level === 'medium' ? '🟡' : '🔴'}
-                  </div>
-                  <div className="font-semibold capitalize">{level}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Difficulty info */}
+          {/* Random difficulty info */}
           <div className="bg-muted/30 rounded-xl p-4 text-sm">
-            <div className="flex items-center justify-center gap-6">
-              <div className="flex items-center gap-2">
-                <span>⏱️</span>
-                <span>{info.timer} per question</span>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span className="text-xl">🎲</span>
+              <span className="font-semibold text-christmas-gold">Random Difficulty Mode</span>
+            </div>
+            <p className="text-muted-foreground">
+              Each question has a random difficulty level!
+            </p>
+            <div className="flex items-center justify-center gap-4 mt-3 text-xs">
+              <div className="flex items-center gap-1">
+                <span>🟢</span>
+                <span>Easy: 4s</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span>🏆</span>
-                <span>{info.points} each</span>
+              <div className="flex items-center gap-1">
+                <span>🟡</span>
+                <span>Medium: 6s</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span>🔴</span>
+                <span>Hard: 8s</span>
               </div>
             </div>
           </div>

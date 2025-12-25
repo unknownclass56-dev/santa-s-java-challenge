@@ -12,7 +12,6 @@ const Index = () => {
   const { deviceId, hasPlayed, isChecking, existingUsername } = useDeviceId();
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [playerName, setPlayerName] = useState('');
-  const [difficulty, setDifficulty] = useState<'low' | 'medium' | 'hard'>('medium');
   const [quizResults, setQuizResults] = useState<QuizResults | null>(null);
 
   // Show loading while checking device
@@ -45,9 +44,8 @@ const Index = () => {
     );
   }
 
-  const handleStartQuiz = (name: string, selectedDifficulty: 'low' | 'medium' | 'hard') => {
+  const handleStartQuiz = (name: string) => {
     setPlayerName(name);
-    setDifficulty(selectedDifficulty);
     setCurrentScreen('quiz');
   };
 
@@ -71,7 +69,6 @@ const Index = () => {
       {currentScreen === 'quiz' && (
         <QuizScreen
           playerName={playerName}
-          difficulty={difficulty}
           deviceId={deviceId}
           onQuizComplete={handleQuizComplete}
         />

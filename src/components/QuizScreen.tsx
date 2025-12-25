@@ -12,11 +12,11 @@ interface Question {
   explanation: string;
   topic: string;
   hasCode: boolean;
+  difficulty?: 'low' | 'medium' | 'hard';
 }
 
 interface QuizScreenProps {
   playerName: string;
-  difficulty: 'low' | 'medium' | 'hard';
   deviceId: string;
   onQuizComplete: (results: QuizResults) => void;
 }
@@ -31,9 +31,11 @@ export interface QuizResults {
 }
 
 const TOTAL_QUESTIONS = 10;
+const DIFFICULTY_LEVELS: ('low' | 'medium' | 'hard')[] = ['low', 'medium', 'hard'];
 
-const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizScreenProps) => {
+const QuizScreen = ({ playerName, deviceId, onQuizComplete }: QuizScreenProps) => {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [currentDifficulty, setCurrentDifficulty] = useState<'low' | 'medium' | 'hard'>('medium');
   const [questionNumber, setQuestionNumber] = useState(1);
   const [score, setScore] = useState(0);
   const [coins, setCoins] = useState(0);
@@ -46,8 +48,13 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
   const [coinAnimation, setCoinAnimation] = useState(false);
   const [earnedCoins, setEarnedCoins] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  const [timerKey, setTimerKey] = useState(0);
 
-  const getTimerDuration = () => {
+  const getRandomDifficulty = (): 'low' | 'medium' | 'hard' => {
+    return DIFFICULTY_LEVELS[Math.floor(Math.random() * DIFFICULTY_LEVELS.length)];
+  };
+
+  const getTimerDuration = (difficulty: 'low' | 'medium' | 'hard') => {
     switch (difficulty) {
       case 'low': return 4;
       case 'medium': return 6;
@@ -55,7 +62,7 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
     }
   };
 
-  const getBasePoints = () => {
+  const getBasePoints = (difficulty: 'low' | 'medium' | 'hard') => {
     switch (difficulty) {
       case 'low': return 10;
       case 'medium': return 20;
@@ -68,6 +75,10 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
     setIsTimerActive(false);
     setSantaMood('thinking');
 
+    // Generate random difficulty for this question
+    const randomDifficulty = getRandomDifficulty();
+    setCurrentDifficulty(randomDifficulty);
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-question`,
@@ -78,7 +89,7 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            difficulty,
+            difficulty: randomDifficulty,
             questionNumber,
             topics: null,
           }),
@@ -92,14 +103,15 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
       const data = await response.json();
       
       if (data.error && data.fallback) {
-        setCurrentQuestion(data.fallback);
+        setCurrentQuestion({ ...data.fallback, difficulty: randomDifficulty });
       } else {
-        setCurrentQuestion(data);
+        setCurrentQuestion({ ...data, difficulty: randomDifficulty });
       }
       
       setQuestionStartTime(Date.now());
       setSantaMood('idle');
       setIsLoading(false);
+      setTimerKey(prev => prev + 1); // Reset timer
       setIsTimerActive(true);
     } catch (error) {
       console.error('Error fetching question:', error);
@@ -110,13 +122,15 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
         correctIndex: 0,
         explanation: "The 'extends' keyword is used to create a subclass (child class) from a superclass (parent class) in Java.",
         topic: "OOPs - Inheritance",
-        hasCode: false
+        hasCode: false,
+        difficulty: randomDifficulty
       });
       setSantaMood('idle');
       setIsLoading(false);
+      setTimerKey(prev => prev + 1);
       setIsTimerActive(true);
     }
-  }, [difficulty, questionNumber]);
+  }, [questionNumber]);
 
   useEffect(() => {
     fetchQuestion();
@@ -128,7 +142,7 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
     setTotalTime(prev => prev + questionTime);
 
     if (isCorrect) {
-      const basePoints = getBasePoints();
+      const basePoints = getBasePoints(currentDifficulty);
       const timeBonus = Math.floor(timeRemaining * 2);
       const totalPoints = basePoints + timeBonus;
       const coinsEarned = Math.floor(totalPoints / 5);
@@ -148,13 +162,19 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
     // Wait for animation then proceed
     setTimeout(async () => {
       if (questionNumber >= TOTAL_QUESTIONS) {
+        const finalCorrect = correctAnswers + (isCorrect ? 1 : 0);
+        const finalWrong = wrongAnswers + (isCorrect ? 0 : 1);
+        const finalScore = score + (isCorrect ? getBasePoints(currentDifficulty) + Math.floor((timeRemaining || 0) * 2) : 0);
+        const finalCoins = coins + (isCorrect ? Math.floor((getBasePoints(currentDifficulty) + Math.floor((timeRemaining || 0) * 2)) / 5) : 0);
+        const finalTime = Math.floor(totalTime + (Date.now() - questionStartTime) / 1000);
+
         const results: QuizResults = {
-          score: score + (isCorrect ? getBasePoints() + Math.floor((timeRemaining || 0) * 2) : 0),
-          coins: coins + (isCorrect ? Math.floor((getBasePoints() + Math.floor((timeRemaining || 0) * 2)) / 5) : 0),
-          correctAnswers: correctAnswers + (isCorrect ? 1 : 0),
-          wrongAnswers: wrongAnswers + (isCorrect ? 0 : 1),
-          totalTime: Math.floor(totalTime + (Date.now() - questionStartTime) / 1000),
-          difficulty,
+          score: finalScore,
+          coins: finalCoins,
+          correctAnswers: finalCorrect,
+          wrongAnswers: finalWrong,
+          totalTime: finalTime,
+          difficulty: 'mixed',
         };
 
         // Save to database
@@ -167,7 +187,7 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
             correct_answers: results.correctAnswers,
             wrong_answers: results.wrongAnswers,
             total_time_seconds: results.totalTime,
-            difficulty_level: difficulty,
+            difficulty_level: 'medium', // Store as medium for mixed mode
           });
         } catch (error) {
           console.error('Error saving results:', error);
@@ -186,6 +206,14 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
     }
   };
 
+  const getDifficultyEmoji = (diff: 'low' | 'medium' | 'hard') => {
+    switch (diff) {
+      case 'low': return '🟢';
+      case 'medium': return '🟡';
+      case 'hard': return '🔴';
+    }
+  };
+
   return (
     <div className="min-h-screen p-4 md:p-8 relative">
       {/* Header */}
@@ -195,8 +223,8 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
           <div className="flex items-center gap-3">
             <span className="text-2xl">👤</span>
             <span className="font-semibold text-lg">{playerName}</span>
-            <span className={`difficulty-badge difficulty-${difficulty}`}>
-              {difficulty.toUpperCase()}
+            <span className={`difficulty-badge difficulty-${currentDifficulty} flex items-center gap-1`}>
+              {getDifficultyEmoji(currentDifficulty)} {currentDifficulty.toUpperCase()}
             </span>
           </div>
 
@@ -218,7 +246,10 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
           {isLoading ? (
             <div className="christmas-card text-center py-12">
               <div className="text-6xl mb-4 animate-bounce">🎄</div>
-              <p className="text-xl text-muted-foreground">Loading question...</p>
+              <p className="text-xl text-muted-foreground">Generating question...</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Difficulty: {getDifficultyEmoji(currentDifficulty)} {currentDifficulty.toUpperCase()}
+              </p>
             </div>
           ) : currentQuestion ? (
             <QuestionCard
@@ -227,6 +258,7 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
               totalQuestions={TOTAL_QUESTIONS}
               onAnswer={handleAnswer}
               disabled={!isTimerActive}
+              difficulty={currentDifficulty}
             />
           ) : null}
         </div>
@@ -235,7 +267,8 @@ const QuizScreen = ({ playerName, difficulty, deviceId, onQuizComplete }: QuizSc
         <div className="flex flex-col items-center gap-6 md:sticky md:top-8">
           {/* Timer */}
           <Timer
-            duration={getTimerDuration()}
+            key={timerKey}
+            duration={getTimerDuration(currentDifficulty)}
             onTimeUp={handleTimeUp}
             isActive={isTimerActive && !isLoading}
           />

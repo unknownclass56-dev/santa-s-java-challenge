@@ -15,6 +15,7 @@ interface QuestionCardProps {
   totalQuestions: number;
   onAnswer: (selectedIndex: number, isCorrect: boolean, timeRemaining: number) => void;
   disabled: boolean;
+  difficulty?: 'low' | 'medium' | 'hard';
 }
 
 const QuestionCard = ({ 
@@ -22,7 +23,8 @@ const QuestionCard = ({
   questionNumber, 
   totalQuestions, 
   onAnswer, 
-  disabled 
+  disabled,
+  difficulty = 'medium'
 }: QuestionCardProps) => {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -55,6 +57,22 @@ const QuestionCard = ({
 
   const optionLabels = ['A', 'B', 'C', 'D'];
 
+  const getDifficultyEmoji = () => {
+    switch (difficulty) {
+      case 'low': return '🟢';
+      case 'medium': return '🟡';
+      case 'hard': return '🔴';
+    }
+  };
+
+  const getPoints = () => {
+    switch (difficulty) {
+      case 'low': return 10;
+      case 'medium': return 20;
+      case 'hard': return 30;
+    }
+  };
+
   // Format question text (handle code blocks)
   const formatQuestion = (text: string) => {
     if (question.hasCode || text.includes('\n') || text.includes('```')) {
@@ -82,16 +100,21 @@ const QuestionCard = ({
   return (
     <div className="christmas-card animate-fade-in">
       {/* Question header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <span className="text-3xl">📝</span>
           <span className="text-christmas-gold font-semibold">
             Question {questionNumber} of {totalQuestions}
           </span>
         </div>
-        <span className="difficulty-badge difficulty-medium">
-          {question.topic}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`difficulty-badge difficulty-${difficulty} flex items-center gap-1`}>
+            {getDifficultyEmoji()} {difficulty.toUpperCase()} (+{getPoints()} pts)
+          </span>
+          <span className="text-xs bg-muted px-2 py-1 rounded-full text-muted-foreground">
+            {question.topic}
+          </span>
+        </div>
       </div>
 
       {/* Question text */}
